@@ -78,11 +78,13 @@
             margin-bottom: 2px;
         }
 
+        /* 手機高度較小時縮減間距 */
         @media (max-height: 700px) {
-            #start-screen h1 { font-size: 2rem; margin-bottom: 0.5rem; }
-            #legend-box { margin-bottom: 1rem; padding: 0.4rem; }
-            #start-btn { padding: 0.6rem 2rem; font-size: 1.2rem; }
-            #control-instruction { font-size: 0.65rem; margin-bottom: 0.5rem; }
+            #start-screen h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
+            #legend-box { margin-bottom: 0.8rem; padding: 0.3rem; }
+            #rule-box { padding: 0.4rem; margin-bottom: 0.8rem; }
+            #start-btn { padding: 0.5rem 1.8rem; font-size: 1.1rem; }
+            #control-instruction { font-size: 0.6rem; margin-bottom: 0.4rem; padding: 0.5rem; }
         }
     </style>
 </head>
@@ -95,6 +97,7 @@
     <div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 bg-opacity-95 z-40 p-4 text-center">
         <h1 class="text-4xl font-black text-white mb-4 tracking-tighter italic drop-shadow-2xl">STRAIT BREAKOUT<br><span class="text-yellow-400 font-black">霍爾木茲突圍戰</span></h1>
         
+        <!-- 遊戲說明圖例 -->
         <div id="legend-box" class="grid grid-cols-2 gap-4 mb-4 w-full max-w-sm bg-slate-800 bg-opacity-50 p-4 rounded-xl border border-slate-700 shadow-inner">
             <div class="text-left">
                 <div class="text-rose-400 font-black text-[10px] uppercase mb-2 border-b border-rose-900 pb-1">美方及伊朗威脅</div>
@@ -105,8 +108,21 @@
             <div class="text-left">
                 <div class="text-cyan-400 font-black text-[10px] uppercase mb-2 border-b border-cyan-900 pb-1">我方增益</div>
                 <div class="legend-item"><span>🛢️</span> 無敵衝刺</div>
-                <div class="legend-item"><span>⚡</span> 電磁強炮</div>
+                <div class="legend-item) "><span>⚡</span> 電磁強炮</div>
                 <div class="legend-item"><span>💳</span> 川普金卡</div>
+            </div>
+        </div>
+
+        <!-- 詳細規則 -->
+        <div id="rule-box" class="mb-4 bg-slate-800 bg-opacity-70 border-l-4 border-yellow-400 p-3 w-full max-w-sm text-left">
+            <div class="text-white text-xs font-bold mb-1">任務指令 / Mission Briefing</div>
+            <ul class="text-slate-300 text-[11px] leading-relaxed list-disc list-inside">
+                <li>船上的 <span class="text-white">3 個貨櫃</span> 代表血量，全掉落則任務結束。</li>
+                <li>局勢每 <span class="text-yellow-400 font-bold">30 秒</span> 加劇，航行速度將自動提升。</li>
+                <li>目的是避開攔截，盡可能航行到 <span class="text-white font-bold">最遠的海浬數</span>。</li>
+            </ul>
+            <div class="mt-2 text-cyan-400 text-[10px] font-black italic">
+                💡 HINT: 盡量吃 🛢️ 油桶衝刺，是獲得高里程的關鍵！
             </div>
         </div>
 
@@ -126,10 +142,9 @@
                 手動校準靈敏度
             </button>
         </div>
-        <p class="text-slate-500 text-[10px] font-bold italic mt-4">PROTECT THE REMAINING 3 CONTAINERS</p>
     </div>
 
-    <!-- 校準畫面 (修正為透明背景並穿透點擊) -->
+    <!-- 校準畫面 -->
     <div id="calibration-screen" class="absolute inset-0 flex flex-col items-center justify-start bg-transparent z-50 p-6 hidden pointer-events-none">
         <div class="w-full max-w-sm mt-8 bg-slate-900 bg-opacity-90 p-6 rounded-2xl border-2 border-slate-700 pointer-events-auto shadow-2xl">
             <h2 class="text-white font-black text-xl mb-4 italic text-center">靈敏度校準 / Sensitivity</h2>
@@ -138,7 +153,6 @@
                 <div class="flex-1 px-2">
                     <div class="h-3 w-full bg-slate-950 rounded-full relative overflow-hidden">
                         <div id="sens-bar" class="absolute h-full bg-yellow-400 rounded-full transition-all duration-200" style="width: 50%;"></div>
-                        <!-- 中間預設值標記 -->
                         <div class="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-full bg-white opacity-40"></div>
                     </div>
                 </div>
@@ -147,7 +161,6 @@
             <div class="text-yellow-400 text-center text-xs mt-4 font-black tracking-widest animate-pulse">在下方空白區域測試移動感</div>
         </div>
 
-        <!-- 底部返回按鈕 -->
         <div class="mt-auto mb-10 pointer-events-auto">
             <button id="cal-back-btn" class="bg-white text-slate-900 font-black py-4 px-16 rounded-full shadow-2xl transform active:scale-95 transition-all">
                 完成並返回
@@ -273,7 +286,6 @@
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 600;
     const scaleFactor = isMobile ? 0.9 : 1.0;
 
-    // --- 靈敏度系統 ---
     let sensitivityValue = 1.05; 
     const SENS_MIN = 0.5, SENS_MAX = 2.0;
 
@@ -300,13 +312,12 @@
         height = canvas.height = window.innerHeight;
         if (gameState !== 'PLAYING') {
             tanker.x = width / 2;
-            tanker.y = height * 0.6; // 校準時放低一點
+            tanker.y = height * 0.6;
         }
     }
     window.addEventListener('resize', resize);
     resize();
 
-    // --- 控制與校準邏輯 ---
     const keys = {};
     window.addEventListener('keydown', e => keys[e.code] = true);
     window.addEventListener('keyup', e => keys[e.code] = false);
@@ -349,12 +360,10 @@
     }
     updateSensUI();
 
-    // --- 繪圖與特效 ---
     function drawTanker(x, y, w, h, isInvincible) {
         ctx.save();
         ctx.translate(x, y);
         ctx.globalAlpha = (isInvincible && Math.floor(Date.now() / 80) % 2 === 0) ? 0.3 : 1.0;
-
         ctx.fillStyle = '#1e293b';
         ctx.beginPath();
         ctx.moveTo(0, -h/2);
@@ -365,15 +374,12 @@
         ctx.strokeStyle = '#64748b';
         ctx.lineWidth = 2;
         ctx.stroke();
-
         ctx.fillStyle = '#334155';
         ctx.fillRect(-w/2 + 5*scaleFactor, -h/4, w - 10*scaleFactor, h/1.5);
-
         ctx.fillStyle = '#94a3b8';
         ctx.fillRect(-w/3, h/4, (w/3)*2, h/6);
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(-w/4, h/4 + 4*scaleFactor, (w/4)*2, 4*scaleFactor);
-
         for(let i=0; i<tanker.health; i++) {
             const cy = -h/2 + (32*scaleFactor) + (i * (25*scaleFactor));
             ctx.fillStyle = i === 0 ? '#b91c1c' : (i === 1 ? '#15803d' : '#1d4ed8');
@@ -429,7 +435,9 @@
 
         mileage += (gameSpeed / 60) * (dt / 16);
         mileageDisplay.innerText = `${mileage.toFixed(1)} nm`;
-        let newLevel = Math.floor((Date.now() - startTime) / 20000) + 1;
+        
+        // --- 難度升級調整為 30 秒 (30000ms) ---
+        let newLevel = Math.floor((Date.now() - startTime) / 30000) + 1;
         if (newLevel !== difficultyLevel) { difficultyLevel = newLevel; levelDisplay.innerText = `LV. ${difficultyLevel}`; }
 
         if (keys['ArrowUp'] || keys['KeyW']) tanker.y -= tanker.speed;
@@ -447,7 +455,7 @@
             const types = ['PATROL', 'GUNBOAT', 'MISSILE'];
             const type = types[Math.floor(Math.random() * types.length)];
             if (type === 'MISSILE') { enemies.push({ type, x: tanker.x + (Math.random()-0.5)*120, y: tanker.y + (Math.random()-0.5)*120, timer: 1500, exploded: false }); }
-            else { enemies.push({ type, x: Math.random() * (width - 40) + 20, y: -60, speed: 4 + Math.random()*3 + difficultyLevel*0.6, lastShot: 0 }); }
+            else { enemies.push({ type: type, x: Math.random() * (width - 40) + 20, y: -60, speed: 4 + Math.random()*3 + difficultyLevel*0.6, lastShot: 0 }); }
         }
         if (Math.random() < 0.004) items.push({ type: ['OIL', 'CANNON', 'TRUMP'][Math.floor(Math.random()*3)], x: Math.random()*(width-40)+20, y: -60 });
 
