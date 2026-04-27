@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>中東油雲：霍爾木茲突圍戰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: #000;
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 600px;
+            margin: 0 auto;
+            background: #111827;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .news-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+            display: none;
+            z-index: 50;
+        }
+
+        .news-overlay::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .breaking-news-bar {
+            position: absolute;
+            bottom: 10%;
+            width: 100%;
+            background: #e11d48;
+            color: white;
+            font-weight: 900;
+            padding: 1.5rem;
+            transform: skewX(-10deg);
+            border: 5px solid white;
+            box-shadow: 0 0 30px rgba(225, 29, 72, 0.5);
+            z-index: 60;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #cbd5e1;
+            margin-bottom: 2px;
+        }
+
+        @media (max-height: 700px) {
+            #start-screen h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+            #legend-box { margin-bottom: 1rem; padding: 0.4rem; }
+            #start-btn { padding: 0.6rem 2rem; font-size: 1.2rem; }
+            #control-instruction { font-size: 0.65rem; margin-bottom: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 啟動 UI -->
+    <div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 bg-opacity-95 z-40 p-4 text-center">
+        <h1 class="text-4xl font-black text-white mb-4 tracking-tighter italic drop-shadow-2xl">STRAIT BREAKOUT<br><span class="text-yellow-400 font-black">霍爾木茲突圍戰</span></h1>
+        
+        <div id="legend-box" class="grid grid-cols-2 gap-4 mb-4 w-full max-w-sm bg-slate-800 bg-opacity-50 p-4 rounded-xl border border-slate-700 shadow-inner">
+            <div class="text-left">
+                <div class="text-rose-400 font-black text-[10px] uppercase mb-2 border-b border-rose-900 pb-1">美方及伊朗威脅</div>
+                <div class="legend-item"><span>🚤</span> 巡邏艇: 快速</div>
+                <div class="legend-item"><span>🛥️</span> 砲艇: 砲擊</div>
+                <div class="legend-item"><span>🚀</span> 導彈: 爆炸</div>
+            </div>
+            <div class="text-left">
+                <div class="text-cyan-400 font-black text-[10px] uppercase mb-2 border-b border-cyan-900 pb-1">我方增益</div>
+                <div class="legend-item"><span>🛢️</span> 無敵衝刺</div>
+                <div class="legend-item"><span>⚡</span> 電磁強炮</div>
+                <div class="legend-item"><span>💳</span> 川普金卡</div>
+            </div>
+        </div>
+
+        <div id="control-instruction" class="mb-4 bg-blue-900 bg-opacity-30 border border-blue-800 rounded-lg p-3 w-full max-w-sm text-center">
+            <div class="text-blue-300 font-black text-[10px] uppercase mb-1">移動教學 / Controls</div>
+            <p class="text-white text-xs leading-relaxed">
+                電腦：使用方向鍵 <span class="text-yellow-400">↑ ↓ ← →</span><br>
+                手機：在螢幕任意地方上下左右滑動
+            </p>
+        </div>
+
+        <div class="flex flex-col gap-3 w-full max-w-xs">
+            <button id="start-btn" class="bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-black py-4 px-12 rounded-full text-2xl transition transform hover:scale-105 active:scale-95 shadow-2xl pointer-events-auto">
+                開始航行
+            </button>
+            <button id="calibrate-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-8 rounded-full text-sm transition border border-slate-600 pointer-events-auto">
+                手動校準靈敏度
+            </button>
+        </div>
+        <p class="text-slate-500 text-[10px] font-bold italic mt-4">PROTECT THE REMAINING 3 CONTAINERS</p>
+    </div>
+
+    <!-- 校準畫面 (修正為透明背景並穿透點擊) -->
+    <div id="calibration-screen" class="absolute inset-0 flex flex-col items-center justify-start bg-transparent z-50 p-6 hidden pointer-events-none">
+        <div class="w-full max-w-sm mt-8 bg-slate-900 bg-opacity-90 p-6 rounded-2xl border-2 border-slate-700 pointer-events-auto shadow-2xl">
+            <h2 class="text-white font-black text-xl mb-4 italic text-center">靈敏度校準 / Sensitivity</h2>
+            <div class="flex items-center gap-4 bg-slate-800 p-4 rounded-xl border border-slate-700">
+                <button id="sens-down" class="bg-slate-600 w-12 h-12 rounded-full text-white font-black text-2xl active:bg-rose-500 shadow-lg">-</button>
+                <div class="flex-1 px-2">
+                    <div class="h-3 w-full bg-slate-950 rounded-full relative overflow-hidden">
+                        <div id="sens-bar" class="absolute h-full bg-yellow-400 rounded-full transition-all duration-200" style="width: 50%;"></div>
+                        <!-- 中間預設值標記 -->
+                        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-full bg-white opacity-40"></div>
+                    </div>
+                </div>
+                <button id="sens-up" class="bg-slate-600 w-12 h-12 rounded-full text-white font-black text-2xl active:bg-cyan-500 shadow-lg">+</button>
+            </div>
+            <div class="text-yellow-400 text-center text-xs mt-4 font-black tracking-widest animate-pulse">在下方空白區域測試移動感</div>
+        </div>
+
+        <!-- 底部返回按鈕 -->
+        <div class="mt-auto mb-10 pointer-events-auto">
+            <button id="cal-back-btn" class="bg-white text-slate-900 font-black py-4 px-16 rounded-full shadow-2xl transform active:scale-95 transition-all">
+                完成並返回
+            </button>
+        </div>
+    </div>
+
+    <!-- 遊戲中 HUD -->
+    <div id="hud" class="absolute top-4 left-0 w-full px-6 flex justify-between items-start pointer-events-none z-30 opacity-0 transition-opacity duration-500">
+        <div class="bg-black bg-opacity-40 p-2 rounded border-l-4 border-white">
+            <div class="text-slate-400 text-[9px] font-bold uppercase">Distance</div>
+            <div id="mileage-display" class="text-2xl font-black text-white italic">0.0 nm</div>
+        </div>
+        <div class="text-right">
+            <div class="text-slate-400 text-[9px] font-bold uppercase">Threat Level</div>
+            <div id="level-display" class="text-xl font-black text-yellow-400">LV. 1</div>
+        </div>
+    </div>
+
+    <!-- 倒數計時 -->
+    <div id="countdown" class="absolute inset-0 flex items-center justify-center text-9xl font-black text-white z-50 pointer-events-none hidden italic drop-shadow-2xl"></div>
+
+    <!-- 新聞特報結算 -->
+    <div id="game-over-screen" class="news-overlay">
+        <div class="absolute top-8 left-8 text-white font-black italic border-l-8 border-yellow-400 pl-4">
+            <div class="text-4xl tracking-tighter">CNN</div>
+            <div class="text-lg tracking-widest text-yellow-400">BREAKING NEWS</div>
+        </div>
+        <div class="breaking-news-bar">
+            <div class="text-xs font-bold opacity-80 uppercase tracking-widest">Live Update: Hormuz Strait Crisis</div>
+            <div id="final-headline" class="text-2xl md:text-3xl font-black leading-tight">BREAKING: TANKER ESCAPED THE BLOCKADE!</div>
+        </div>
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-auto">
+            <div class="bg-slate-900 bg-opacity-95 p-8 rounded-xl border-t-8 border-white text-center shadow-2xl scale-100 mx-4">
+                <h2 class="text-3xl font-black text-white mb-2">任務終止</h2>
+                <div class="text-slate-400 mb-6 font-bold text-sm">貨運損失殆盡，被迫撤離。</div>
+                <button onclick="location.reload()" class="bg-yellow-400 text-slate-900 font-black py-3 px-10 rounded hover:bg-white transition-all transform active:scale-95 shadow-xl">再次嘗試突圍</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 8-BIT 音效系統 ---
+    const AudioEngine = (() => {
+        let audioCtx = null;
+        const init = () => {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        };
+        const playSfx = (freq, type, decay, vol = 0.1) => {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + decay);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + decay);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + decay);
+        };
+        const playShoot = () => playSfx(880, 'square', 0.2);
+        const playExplode = () => playSfx(100, 'sawtooth', 0.5, 0.2);
+        const playDamage = () => playSfx(150, 'square', 0.3, 0.25);
+        const playPowerUp = () => {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(880, audioCtx.currentTime + 0.3);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+            const g = audioCtx.createGain();
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            osc.connect(g); g.connect(audioCtx.destination);
+        };
+        const startBGM = () => {
+            if (!audioCtx) return;
+            const tempo = 0.15;
+            const loop = () => {
+                const now = audioCtx.currentTime;
+                for(let i=0; i<16; i++){
+                    const osc = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    osc.type = i % 4 === 0 ? 'square' : 'triangle';
+                    const freq = [110, 110, 165, 110, 138, 110, 110, 165][i % 8];
+                    osc.frequency.setValueAtTime(freq, now + i * tempo);
+                    g.gain.setValueAtTime(0.04, now + i * tempo);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + i * tempo + tempo * 0.8);
+                    osc.connect(g); g.connect(audioCtx.destination);
+                    osc.start(now + i * tempo); osc.stop(now + i * tempo + tempo);
+                }
+            };
+            loop();
+            setInterval(loop, 16 * tempo * 1000);
+        };
+        return { init, playShoot, playExplode, playDamage, playPowerUp, startBGM };
+    })();
+
+    // --- 遊戲狀態 ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const startBtn = document.getElementById('start-btn');
+    const startScreen = document.getElementById('start-screen');
+    const calibrateBtn = document.getElementById('calibrate-btn');
+    const calibrationScreen = document.getElementById('calibration-screen');
+    const calBackBtn = document.getElementById('cal-back-btn');
+    const hud = document.getElementById('hud');
+    const countdownEl = document.getElementById('countdown');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const mileageDisplay = document.getElementById('mileage-display');
+    const levelDisplay = document.getElementById('level-display');
+    const finalHeadline = document.getElementById('final-headline');
+
+    let width, height;
+    let gameState = 'START';
+    let mileage = 0;
+    let startTime = 0;
+    let lastTime = Date.now();
+    let difficultyLevel = 1;
+    let gameSpeed = 3.5;
+    
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 600;
+    const scaleFactor = isMobile ? 0.9 : 1.0;
+
+    // --- 靈敏度系統 ---
+    let sensitivityValue = 1.05; 
+    const SENS_MIN = 0.5, SENS_MAX = 2.0;
+
+    const tanker = {
+        x: 0, y: 0,
+        w: 40 * scaleFactor, 
+        h: 100 * scaleFactor,
+        speed: isMobile ? 7.8 : 7,
+        health: 3,
+        maxHealth: 3,
+        invincible: 0,
+        emCannon: 0,
+        vx: 0, vy: 0
+    };
+
+    let enemies = [];
+    let bullets = [];
+    let items = [];
+    let effects = [];
+    let debris = []; 
+
+    function resize() {
+        width = canvas.width = Math.min(window.innerWidth, 600);
+        height = canvas.height = window.innerHeight;
+        if (gameState !== 'PLAYING') {
+            tanker.x = width / 2;
+            tanker.y = height * 0.6; // 校準時放低一點
+        }
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- 控制與校準邏輯 ---
+    const keys = {};
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    let touchStart = null;
+    canvas.addEventListener('touchstart', e => {
+        touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }, {passive: false});
+    
+    canvas.addEventListener('touchmove', e => {
+        if (!touchStart) return;
+        e.preventDefault();
+        const dx = e.touches[0].clientX - touchStart.x;
+        const dy = e.touches[0].clientY - touchStart.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const maxDist = 50;
+        const moveDist = Math.min(dist, maxDist);
+        const angle = Math.atan2(dy, dx);
+        const power = Math.min(1.0, (moveDist / maxDist) * sensitivityValue);
+        tanker.vx = Math.cos(angle) * power * tanker.speed;
+        tanker.vy = Math.sin(angle) * power * tanker.speed;
+    }, {passive: false});
+
+    canvas.addEventListener('touchend', () => {
+        touchStart = null;
+        tanker.vx = tanker.vy = 0;
+    });
+
+    document.getElementById('sens-up').onclick = () => {
+        sensitivityValue = Math.min(SENS_MAX, sensitivityValue + 0.1);
+        updateSensUI();
+    };
+    document.getElementById('sens-down').onclick = () => {
+        sensitivityValue = Math.max(SENS_MIN, sensitivityValue - 0.1);
+        updateSensUI();
+    };
+    function updateSensUI() {
+        const percent = ((sensitivityValue - SENS_MIN) / (SENS_MAX - SENS_MIN)) * 100;
+        document.getElementById('sens-bar').style.width = `${percent}%`;
+    }
+    updateSensUI();
+
+    // --- 繪圖與特效 ---
+    function drawTanker(x, y, w, h, isInvincible) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.globalAlpha = (isInvincible && Math.floor(Date.now() / 80) % 2 === 0) ? 0.3 : 1.0;
+
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.moveTo(0, -h/2);
+        ctx.bezierCurveTo(w/2, -h/2, w/2, -h/4, w/2, h/2);
+        ctx.lineTo(-w/2, h/2);
+        ctx.bezierCurveTo(-w/2, -h/4, -w/2, -h/2, 0, -h/2);
+        ctx.fill();
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(-w/2 + 5*scaleFactor, -h/4, w - 10*scaleFactor, h/1.5);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(-w/3, h/4, (w/3)*2, h/6);
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(-w/4, h/4 + 4*scaleFactor, (w/4)*2, 4*scaleFactor);
+
+        for(let i=0; i<tanker.health; i++) {
+            const cy = -h/2 + (32*scaleFactor) + (i * (25*scaleFactor));
+            ctx.fillStyle = i === 0 ? '#b91c1c' : (i === 1 ? '#15803d' : '#1d4ed8');
+            ctx.fillRect(-w/4, cy, w/2, 18*scaleFactor);
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+            ctx.strokeRect(-w/4, cy, w/2, 18*scaleFactor);
+        }
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+    }
+
+    function drawEmoji(emoji, x, y, size, angle = 0) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.font = `${size * scaleFactor}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(emoji, 0, 0);
+        ctx.restore();
+    }
+
+    function createExplosion(x, y, count = 8) {
+        AudioEngine.playExplode();
+        for(let i=0; i<count; i++) {
+            effects.push({
+                x, y, 
+                vx: (Math.random()-0.5)*12, 
+                vy: (Math.random()-0.5)*12, 
+                life: 1, 
+                type: 'smoke'
+            });
+        }
+    }
+
+    function takeDamage() {
+        if (tanker.invincible > 0) return;
+        tanker.health--;
+        tanker.invincible = 1500;
+        AudioEngine.playDamage();
+        debris.push({ x: tanker.x, y: tanker.y, vx: (Math.random()-0.5)*6, vy: 4, vr: 0.2, r: 0, life: 1 });
+        if (tanker.health <= 0) endGame();
+    }
+
+    function update(dt) {
+        if (gameState === 'CALIBRATING') {
+            tanker.x += tanker.vx; tanker.y += tanker.vy;
+            tanker.x = Math.max(30, Math.min(width - 30, tanker.x));
+            tanker.y = Math.max(height*0.4, Math.min(height*0.85, tanker.y));
+            return;
+        }
+        if (gameState !== 'PLAYING') return;
+
+        mileage += (gameSpeed / 60) * (dt / 16);
+        mileageDisplay.innerText = `${mileage.toFixed(1)} nm`;
+        let newLevel = Math.floor((Date.now() - startTime) / 20000) + 1;
+        if (newLevel !== difficultyLevel) { difficultyLevel = newLevel; levelDisplay.innerText = `LV. ${difficultyLevel}`; }
+
+        if (keys['ArrowUp'] || keys['KeyW']) tanker.y -= tanker.speed;
+        if (keys['ArrowDown'] || keys['KeyS']) tanker.y += tanker.speed;
+        if (keys['ArrowLeft'] || keys['KeyA']) tanker.x -= tanker.speed;
+        if (keys['ArrowRight'] || keys['KeyD']) tanker.x += tanker.speed;
+        tanker.x += tanker.vx; tanker.y += tanker.vy;
+        tanker.x = Math.max(20, Math.min(width - 20, tanker.x));
+        tanker.y = Math.max(40, Math.min(height - 40, tanker.y));
+
+        if (tanker.invincible > 0) tanker.invincible -= dt;
+        if (tanker.emCannon > 0) tanker.emCannon -= dt;
+
+        if (Math.random() < 0.025 + (difficultyLevel * 0.008)) {
+            const types = ['PATROL', 'GUNBOAT', 'MISSILE'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            if (type === 'MISSILE') { enemies.push({ type, x: tanker.x + (Math.random()-0.5)*120, y: tanker.y + (Math.random()-0.5)*120, timer: 1500, exploded: false }); }
+            else { enemies.push({ type, x: Math.random() * (width - 40) + 20, y: -60, speed: 4 + Math.random()*3 + difficultyLevel*0.6, lastShot: 0 }); }
+        }
+        if (Math.random() < 0.004) items.push({ type: ['OIL', 'CANNON', 'TRUMP'][Math.floor(Math.random()*3)], x: Math.random()*(width-40)+20, y: -60 });
+
+        items.forEach((it, i) => {
+            it.y += gameSpeed * 0.6; 
+            if (Math.abs(it.x - tanker.x) < 35*scaleFactor && Math.abs(it.y - tanker.y) < 45*scaleFactor) { applyBuff(it.type); items.splice(i, 1); }
+            if (it.y > height + 60) items.splice(i, 1);
+        });
+
+        enemies.forEach((en, i) => {
+            if (en.type === 'MISSILE') {
+                en.timer -= dt;
+                if (en.timer <= 0 && !en.exploded) {
+                    en.exploded = true; createExplosion(en.x, en.y, 15);
+                    if (Math.sqrt((en.x-tanker.x)**2 + (en.y-tanker.y)**2) < (width/7)*scaleFactor) takeDamage();
+                    setTimeout(() => { const idx = enemies.indexOf(en); if (idx > -1) enemies.splice(idx, 1); }, 300);
+                }
+            } else {
+                en.y += en.speed;
+                if (en.type === 'GUNBOAT' && en.y > 0 && Date.now() - en.lastShot > 1600) { bullets.push({ x: en.x, y: en.y, vy: 9 }); en.lastShot = Date.now(); }
+                if (Math.sqrt((en.x-tanker.x)**2 + (en.y-tanker.y)**2) < 38 * scaleFactor) { takeDamage(); enemies.splice(i, 1); }
+                if (tanker.emCannon > 0 && Math.abs(en.x - tanker.x) < 45*scaleFactor && en.y < tanker.y) { createExplosion(en.x, en.y); enemies.splice(i, 1); }
+                if (en.y > height + 60) enemies.splice(i, 1);
+            }
+        });
+
+        bullets.forEach((b, i) => { b.y += b.vy; if (Math.sqrt((b.x-tanker.x)**2 + (b.y-tanker.y)**2) < 28*scaleFactor) { takeDamage(); bullets.splice(i, 1); } if (b.y > height + 50) bullets.splice(i, 1); });
+        effects.forEach((ef, i) => { ef.life -= 0.07; if (ef.life <= 0) effects.splice(i, 1); ef.x += ef.vx; ef.y += ef.vy; });
+        debris.forEach((d, i) => { d.y += d.vy; d.x += d.vx; d.r += d.vr; d.life -= 0.015; if (d.life <= 0) debris.splice(i, 1); });
+    }
+
+    function applyBuff(type) {
+        AudioEngine.playPowerUp();
+        if (type === 'OIL') { tanker.invincible = 3000; const os = gameSpeed; gameSpeed = 15; setTimeout(() => gameSpeed = os, 3000); }
+        else if (type === 'CANNON') { tanker.emCannon = 4000; AudioEngine.playShoot(); }
+        else if (type === 'TRUMP') { enemies = []; bullets = []; tanker.invincible = 2000; effects.push({ x: width/2, y: height/2, life: 1, type: 'gold', vx: 0, vy: 0 }); }
+    }
+
+    function endGame() { gameState = 'GAMEOVER'; finalHeadline.innerText = `油輪成功突圍！航行 ${mileage.toFixed(1)} 海浬`; gameOverScreen.style.display = 'block'; }
+
+    function draw() {
+        ctx.clearRect(0, 0, width, height);
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 2;
+        for (let i = 0; i < 15; i++) { const offset = (Date.now() / 20 + i * (height/12)) % height; ctx.beginPath(); ctx.moveTo(0, offset); ctx.lineTo(width, offset); ctx.stroke(); }
+
+        if (gameState === 'PLAYING' || gameState === 'CALIBRATING') {
+            if (gameState === 'PLAYING') {
+                items.forEach(it => drawEmoji(it.type === 'OIL' ? '🛢️' : (it.type === 'CANNON' ? '⚡' : '💳'), it.x, it.y, 42));
+                enemies.forEach(en => {
+                    if (en.type === 'MISSILE') {
+                        const r = (width/8) * scaleFactor; ctx.beginPath(); ctx.arc(en.x, en.y, r, 0, Math.PI*2); ctx.strokeStyle = 'rgba(255,0,0,0.3)'; ctx.stroke();
+                        const shrinkR = Math.max(0, (en.timer/1500)*r); ctx.beginPath(); ctx.arc(en.x, en.y, shrinkR, 0, Math.PI*2); ctx.strokeStyle = 'red'; ctx.lineWidth = 3; ctx.stroke();
+                    } else { drawEmoji(en.type === 'PATROL' ? '🚤' : '🛥️', en.x, en.y, 45, Math.PI); if (en.type === 'GUNBOAT') { ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(en.x, en.y); ctx.lineTo(en.x, height); ctx.stroke(); } }
+                });
+                if (tanker.emCannon > 0) { const g = ctx.createLinearGradient(tanker.x, tanker.y, tanker.x, 0); g.addColorStop(0, 'cyan'); g.addColorStop(1, 'transparent'); ctx.fillStyle = g; ctx.fillRect(tanker.x-(22*scaleFactor), 0, 44*scaleFactor, tanker.y); drawEmoji('🔥', tanker.x, tanker.y-(55*scaleFactor), 45); }
+                bullets.forEach(b => { ctx.fillStyle = '#ff0'; ctx.beginPath(); ctx.arc(b.x, b.y, 6*scaleFactor, 0, Math.PI*2); ctx.fill(); });
+            }
+            drawTanker(tanker.x, tanker.y, tanker.w, tanker.h, tanker.invincible > 0);
+        }
+        debris.forEach(d => drawEmoji('📦', d.x, d.y, 28, d.r));
+        effects.forEach(ef => { if (ef.type === 'smoke') drawEmoji('💥', ef.x, ef.y, 55*(1-ef.life)); if (ef.type === 'gold') drawEmoji('💰', ef.x, ef.y, 280*(1-ef.life)); });
+        requestAnimationFrame(draw);
+    }
+
+    function gameLoop() { const now = Date.now(); const dt = Math.min(now - lastTime, 100); lastTime = now; update(dt); setTimeout(gameLoop, 1000/60); }
+
+    startBtn.onclick = (e) => {
+        e.stopPropagation(); AudioEngine.init(); AudioEngine.startBGM(); startScreen.style.display = 'none'; countdownEl.classList.remove('hidden');
+        let c = 3; const t = setInterval(() => { countdownEl.innerText = c === 0 ? 'GO!' : c; if (c < 0) { clearInterval(t); countdownEl.classList.add('hidden'); hud.classList.remove('opacity-0'); gameState = 'PLAYING'; startTime = Date.now(); resize(); } c--; }, 1000);
+    };
+
+    calibrateBtn.onclick = () => { gameState = 'CALIBRATING'; startScreen.style.display = 'none'; calibrationScreen.style.display = 'flex'; tanker.x = width/2; tanker.y = height*0.6; };
+    calBackBtn.onclick = () => { gameState = 'START'; calibrationScreen.style.display = 'none'; startScreen.style.display = 'flex'; resize(); };
+
+    gameLoop();
+    draw();
+</script>
+</body>
+</html>
